@@ -106,33 +106,72 @@ fun Greeting(modifier: Modifier = Modifier) {
                 )
             }
 
-            // Esfera con gradiente radial homogéneo (centro claro, borde oscuro)
-            val gradSteps = 80
-            for (i in gradSteps downTo 1) {
-                val frac = i / gradSteps.toFloat()
-                val color = when {
-                    frac > 0.85f -> lerpColor(Color.White, Color(0xFFFFD600), (frac - 0.85f) / 0.15f) // blanco a amarillo
-                    frac > 0.6f -> lerpColor(Color(0xFFFFD600), Color(0xFFFF9800), (frac - 0.6f) / 0.25f) // amarillo a naranja
-                    frac > 0.3f -> lerpColor(Color(0xFFFF9800), Color(0xFF8B0000), (frac - 0.3f) / 0.3f) // naranja a rojo oscuro
-                    else -> lerpColor(Color(0xFF8B0000), Color.Black, (0.3f - frac) / 0.3f) // rojo oscuro a negro
+            // Posiciones de las tres esferas (triángulo equilátero)
+            val triangleRadius = sphereRadius * 2.5f
+            val angle1 = 0f
+            val angle2 = 2 * Math.PI / 3
+            val angle3 = 4 * Math.PI / 3
+            val sphereCenters = listOf(
+                center,
+                center + Offset(
+                    (triangleRadius * Math.cos(angle2)).toFloat(),
+                    (triangleRadius * Math.sin(angle2)).toFloat()
+                ),
+                center + Offset(
+                    (triangleRadius * Math.cos(angle3)).toFloat(),
+                    (triangleRadius * Math.sin(angle3)).toFloat()
+                )
+            )
+            // Dibuja las tres esferas y sus sombras proyectadas
+            for (sphereCenter in sphereCenters) {
+                val lightDir = (sunPx - sphereCenter).normalizeCompat()
+                // Sombra proyectada para cada esfera
+                val eclipseHeight = (sunPx.y - sphereCenter.y) / sphereRadius
+                val shadowDist = sphereRadius * (1.2f + 0.7f * eclipseHeight.coerceIn(-1f, 1f))
+                val shadowCenter = sphereCenter + (sphereCenter - sunPx).normalizeCompat() * shadowDist
+                val shadowWidth = sphereRadius * (1.1f + 0.5f * eclipseHeight.coerceIn(-1f, 1f))
+                val shadowHeight = sphereRadius * (0.45f - 0.18f * eclipseHeight.coerceIn(-1f, 1f))
+                val shadowAlphaBase = (0.22f - 0.10f * eclipseHeight.coerceIn(-1f, 1f)).coerceIn(0.08f, 0.25f)
+                for (i in 0..4) {
+                    val alpha = shadowAlphaBase / (i + 1)
+                    val scale = 1f + i * 0.18f
+                    drawOval(
+                        color = Color.Black.copy(alpha = alpha),
+                        topLeft = Offset(
+                            shadowCenter.x - shadowWidth * scale,
+                            shadowCenter.y - (shadowHeight * scale) / 2 + sphereRadius * 1.1f
+                        ),
+                        size = Size(shadowWidth * 2 * scale, shadowHeight * scale)
+                    )
                 }
-                val offset = lightDir * sphereRadius * 0.18f * (1 - frac)
-                drawCircle(
-                    color = color,
-                    center = center + offset,
-                    radius = sphereRadius * frac
+                // Gradiente radial homogéneo (centro claro, borde oscuro)
+                val gradSteps = 80
+                for (i in gradSteps downTo 1) {
+                    val frac = i / gradSteps.toFloat()
+                    val color = when {
+                        frac > 0.85f -> lerpColor(Color.White, Color(0xFFFFD600), (frac - 0.85f) / 0.15f)
+                        frac > 0.6f -> lerpColor(Color(0xFFFFD600), Color(0xFFFF9800), (frac - 0.6f) / 0.25f)
+                        frac > 0.3f -> lerpColor(Color(0xFFFF9800), Color(0xFF8B0000), (frac - 0.3f) / 0.3f)
+                        else -> lerpColor(Color(0xFF8B0000), Color.Black, (0.3f - frac) / 0.3f)
+                    }
+                    val offset = lightDir * sphereRadius * 0.18f * (1 - frac)
+                    drawCircle(
+                        color = color,
+                        center = sphereCenter + offset,
+                        radius = sphereRadius * frac
+                    )
+                }
+                // Reflejo especular pequeño y suave
+                val highlightOffset = lightDir * sphereRadius * 0.55f
+                drawOval(
+                    color = Color.White.copy(alpha = 0.18f),
+                    topLeft = Offset(
+                        (sphereCenter + highlightOffset).x - sphereRadius * 0.09f,
+                        (sphereCenter + highlightOffset).y - sphereRadius * 0.045f
+                    ),
+                    size = Size(sphereRadius * 0.18f, sphereRadius * 0.09f)
                 )
             }
-            // Reflejo especular pequeño y suave
-            val highlightOffset = lightDir * sphereRadius * 0.55f
-            drawOval(
-                color = Color.White.copy(alpha = 0.18f),
-                topLeft = Offset(
-                    (center + highlightOffset).x - sphereRadius * 0.09f,
-                    (center + highlightOffset).y - sphereRadius * 0.045f
-                ),
-                size = Size(sphereRadius * 0.18f, sphereRadius * 0.09f)
-            )
 
             // Eclipse de Berserk simplificado
             val eclipseRadius = sunRadius * 1.5f
