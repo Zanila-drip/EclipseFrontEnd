@@ -117,14 +117,16 @@ fun Greeting(modifier: Modifier = Modifier) {
                 size = Size(sphereRadius * 2.2f, sphereRadius * 0.5f)
             )
 
-            // Sombra proyectada (elipse en el suelo, difusa)
+            // Sombra proyectada (más realista: más alargada y difusa cuando el eclipse está bajo)
             val shadowDir = (center - sunPx).normalizeCompat()
-            val shadowDist = sphereRadius * 1.5f
+            val eclipseHeight = (sunPx.y - center.y) / sphereRadius // negativo: arriba, positivo: abajo
+            val shadowDist = sphereRadius * (1.2f + 0.7f * eclipseHeight.coerceIn(-1f, 1f))
             val shadowCenter = center + shadowDir * shadowDist
-            val shadowWidth = sphereRadius * 1.2f
-            val shadowHeight = sphereRadius * 0.5f
-            for (i in 0..3) {
-                val alpha = 0.18f / (i + 1)
+            val shadowWidth = sphereRadius * (1.1f + 0.5f * eclipseHeight.coerceIn(-1f, 1f))
+            val shadowHeight = sphereRadius * (0.45f - 0.18f * eclipseHeight.coerceIn(-1f, 1f))
+            val shadowAlphaBase = (0.22f - 0.10f * eclipseHeight.coerceIn(-1f, 1f)).coerceIn(0.08f, 0.25f)
+            for (i in 0..4) {
+                val alpha = shadowAlphaBase / (i + 1)
                 val scale = 1f + i * 0.18f
                 drawOval(
                     color = Color.Black.copy(alpha = alpha),
