@@ -136,15 +136,16 @@ fun Greeting(modifier: Modifier = Modifier) {
                 )
             }
 
-            // Esfera con gradiente radial avanzado
+            // Esfera con gradiente radial avanzado (negro, rojo oscuro, naranja, amarillo)
             val lightDir = (sunPx - center).normalizeCompat()
             val gradSteps = 60
             for (i in gradSteps downTo 1) {
                 val frac = i / gradSteps.toFloat()
                 val color = when {
-                    frac > 0.85f -> lerpColor(Color.White, Color(0xFF90CAF9), (frac - 0.85f) / 0.15f)
-                    frac > 0.5f -> lerpColor(Color(0xFF90CAF9), Color(0xFF1976D2), (frac - 0.5f) / 0.35f)
-                    else -> lerpColor(Color(0xFF1976D2), Color(0xFF0D133D), (0.5f - frac) / 0.5f)
+                    frac > 0.85f -> lerpColor(Color(0xFFFFD600), Color.White, (frac - 0.85f) / 0.15f) // amarillo a blanco
+                    frac > 0.65f -> lerpColor(Color(0xFFFF9800), Color(0xFFFFD600), (frac - 0.65f) / 0.2f) // naranja a amarillo
+                    frac > 0.5f -> lerpColor(Color(0xFF8B0000), Color(0xFFFF9800), (frac - 0.5f) / 0.15f) // rojo oscuro a naranja
+                    else -> lerpColor(Color.Black, Color(0xFF8B0000), (0.5f - frac) / 0.5f) // negro a rojo oscuro
                 }
                 val offset = lightDir * sphereRadius * 0.28f * (1 - frac)
                 drawCircle(
@@ -153,11 +154,10 @@ fun Greeting(modifier: Modifier = Modifier) {
                     radius = sphereRadius * frac
                 )
             }
-
-            // Reflejo especular elíptico y difuso
+            // Reflejo especular elíptico y difuso (blanco/amarillo)
             val highlightOffset = lightDir * sphereRadius * 0.65f
             drawOval(
-                color = Color.White.copy(alpha = 0.7f),
+                color = Color.White.copy(alpha = 0.5f),
                 topLeft = Offset(
                     (center + highlightOffset).x - sphereRadius * 0.18f,
                     (center + highlightOffset).y - sphereRadius * 0.09f
@@ -165,7 +165,7 @@ fun Greeting(modifier: Modifier = Modifier) {
                 size = Size(sphereRadius * 0.36f, sphereRadius * 0.18f)
             )
             drawOval(
-                color = Color.White.copy(alpha = 0.25f),
+                color = Color(0xFFFFD600).copy(alpha = 0.18f),
                 topLeft = Offset(
                     (center + highlightOffset).x - sphereRadius * 0.28f,
                     (center + highlightOffset).y - sphereRadius * 0.14f
@@ -173,23 +173,29 @@ fun Greeting(modifier: Modifier = Modifier) {
                 size = Size(sphereRadius * 0.56f, sphereRadius * 0.28f)
             )
 
-            // Sol
+            // Eclipse de Berserk simplificado
+            val eclipseRadius = sunRadius * 1.5f
+            // Halo rojo difuso
+            for (i in 5 downTo 1) {
+                val frac = i / 5f
+                drawCircle(
+                    color = Color(0xFFFF2D2D).copy(alpha = 0.10f * frac),
+                    center = sunPx,
+                    radius = eclipseRadius * (1f + frac * 0.7f)
+                )
+            }
+            // Borde rojo más delgado
             drawCircle(
-                color = Color(0xFFFFEB3B),
+                color = Color(0xFFFF2D2D),
                 center = sunPx,
-                radius = sunRadius,
-                style = Stroke(width = width * 0.01f)
+                radius = eclipseRadius,
+                style = Stroke(width = width * 0.018f)
             )
+            // Centro negro profundo
             drawCircle(
-                color = Color(0xFFFFF176),
+                color = Color.Black,
                 center = sunPx,
-                radius = sunRadius * 0.7f
-            )
-            // Halo del sol
-            drawCircle(
-                color = Color(0xFFFFF59D).copy(alpha = 0.18f),
-                center = sunPx,
-                radius = sunRadius * 2.2f
+                radius = eclipseRadius * 0.97f
             )
         }
     }
