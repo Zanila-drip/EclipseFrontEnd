@@ -58,7 +58,6 @@ class MainActivity : ComponentActivity() {
 fun Greeting(modifier: Modifier = Modifier) {
     val boxSize = 0.95f
     var sunPosition by remember { mutableStateOf(Offset(0.8f, 0.2f)) }
-    // Animación suave para x e y
     val animatedX by animateFloatAsState(targetValue = sunPosition.x, animationSpec = tween(durationMillis = 400))
     val animatedY by animateFloatAsState(targetValue = sunPosition.y, animationSpec = tween(durationMillis = 400))
     val animatedSunPosition = Offset(animatedX, animatedY)
@@ -91,92 +90,89 @@ fun Greeting(modifier: Modifier = Modifier) {
         ) {
             val width = size.width
             val height = size.height
-            val lensRadius = width * 0.18f
-            val lensY = height * 0.5f
-            val leftLensCenter = Offset(width * 0.32f, lensY)
-            val rightLensCenter = Offset(width * 0.68f, lensY)
-            val bridgeStart = Offset(leftLensCenter.x + lensRadius * 0.85f, lensY)
-            val bridgeEnd = Offset(rightLensCenter.x - lensRadius * 0.85f, lensY)
+            val center = Offset(width / 2, height / 2)
+            val sphereRadius = width * 0.18f
             val sunPx = Offset(animatedSunPosition.x * width, animatedSunPosition.y * height)
             val sunRadius = width * 0.08f
-            val lightDir = (Offset((leftLensCenter.x + rightLensCenter.x) / 2, lensY) - sunPx).normalizeCompat()
-            val shadowLength = (width * 0.18f) + (width * 0.25f * (1.2f - animatedSunPosition.y))
-            val shadowAlpha = 0.32f
-            val shadowOffset = lightDir * shadowLength
-            val shadowColor = Color.Black.copy(alpha = shadowAlpha)
-            // Sombra izquierda
+
+            // Fondo con gradiente vertical estilo Eclipse de Berserk
+            for (i in 0..height.toInt() step 4) {
+                val frac = i / height
+                drawRect(
+                    color = lerpColor(Color(0xFF3B0000), Color(0xFFFF2D2D), frac),
+                    topLeft = Offset(0f, i.toFloat()),
+                    size = Size(width, 4f)
+                )
+            }
+
+            // Sombra ambiental (oclusiva, justo debajo de la esfera)
             drawOval(
-                color = shadowColor,
-                topLeft = Offset(
-                    leftLensCenter.x + shadowOffset.x - lensRadius * 1.1f,
-                    leftLensCenter.y + shadowOffset.y - lensRadius * 0.7f
-                ),
-                size = Size(lensRadius * 2.2f, lensRadius * 1.4f)
+                color = Color.Black.copy(alpha = 0.32f),
+                topLeft = Offset(center.x - sphereRadius * 0.7f, center.y + sphereRadius * 0.85f),
+                size = Size(sphereRadius * 1.4f, sphereRadius * 0.38f)
             )
-            // Sombra derecha
             drawOval(
-                color = shadowColor,
-                topLeft = Offset(
-                    rightLensCenter.x + shadowOffset.x - lensRadius * 1.1f,
-                    rightLensCenter.y + shadowOffset.y - lensRadius * 0.7f
-                ),
-                size = Size(lensRadius * 2.2f, lensRadius * 1.4f)
+                color = Color.Black.copy(alpha = 0.13f),
+                topLeft = Offset(center.x - sphereRadius * 1.1f, center.y + sphereRadius * 0.95f),
+                size = Size(sphereRadius * 2.2f, sphereRadius * 0.5f)
             )
-            // Sombra del puente
+
+            // Sombra proyectada (elipse en el suelo, difusa)
+            val shadowDir = (center - sunPx).normalizeCompat()
+            val shadowDist = sphereRadius * 1.5f
+            val shadowCenter = center + shadowDir * shadowDist
+            val shadowWidth = sphereRadius * 1.2f
+            val shadowHeight = sphereRadius * 0.5f
+            for (i in 0..3) {
+                val alpha = 0.18f / (i + 1)
+                val scale = 1f + i * 0.18f
+                drawOval(
+                    color = Color.Black.copy(alpha = alpha),
+                    topLeft = Offset(
+                        shadowCenter.x - shadowWidth * scale,
+                        shadowCenter.y - (shadowHeight * scale) / 2 + sphereRadius * 1.1f
+                    ),
+                    size = Size(shadowWidth * 2 * scale, shadowHeight * scale)
+                )
+            }
+
+            // Esfera con gradiente radial avanzado
+            val lightDir = (sunPx - center).normalizeCompat()
+            val gradSteps = 60
+            for (i in gradSteps downTo 1) {
+                val frac = i / gradSteps.toFloat()
+                val color = when {
+                    frac > 0.85f -> lerpColor(Color.White, Color(0xFF90CAF9), (frac - 0.85f) / 0.15f)
+                    frac > 0.5f -> lerpColor(Color(0xFF90CAF9), Color(0xFF1976D2), (frac - 0.5f) / 0.35f)
+                    else -> lerpColor(Color(0xFF1976D2), Color(0xFF0D133D), (0.5f - frac) / 0.5f)
+                }
+                val offset = lightDir * sphereRadius * 0.28f * (1 - frac)
+                drawCircle(
+                    color = color,
+                    center = center + offset,
+                    radius = sphereRadius * frac
+                )
+            }
+
+            // Reflejo especular elíptico y difuso
+            val highlightOffset = lightDir * sphereRadius * 0.65f
             drawOval(
-                color = shadowColor,
-                topLeft = Offset(
-                    (bridgeStart.x + bridgeEnd.x) / 2 + shadowOffset.x - lensRadius * 0.4f,
-                    lensY + shadowOffset.y - lensRadius * 0.18f
-                ),
-                size = Size(lensRadius * 0.8f, lensRadius * 0.36f)
-            )
-            // Lentes
-            drawCircle(
-                color = Color.Black,
-                center = leftLensCenter,
-                radius = lensRadius,
-                style = Stroke(width = width * 0.025f)
-            )
-            drawCircle(
-                color = Color.Black,
-                center = rightLensCenter,
-                radius = lensRadius,
-                style = Stroke(width = width * 0.025f)
-            )
-            // Puente
-            drawLine(
-                color = Color.Black,
-                start = bridgeStart,
-                end = bridgeEnd,
-                strokeWidth = width * 0.06f
-            )
-            // Patillas
-            drawLine(
-                color = Color.Black,
-                start = Offset(leftLensCenter.x - lensRadius, lensY),
-                end = Offset(leftLensCenter.x - lensRadius * 1.4f, lensY - lensRadius * 0.3f),
-                strokeWidth = width * 0.018f
-            )
-            drawLine(
-                color = Color.Black,
-                start = Offset(rightLensCenter.x + lensRadius, lensY),
-                end = Offset(rightLensCenter.x + lensRadius * 1.4f, lensY - lensRadius * 0.3f),
-                strokeWidth = width * 0.018f
-            )
-            // Reflejo en los lentes
-            val reflectionOffset = (sunPx - leftLensCenter).normalizeCompat() * lensRadius * 0.5f
-            drawCircle(
                 color = Color.White.copy(alpha = 0.7f),
-                center = leftLensCenter + reflectionOffset,
-                radius = lensRadius * 0.22f
+                topLeft = Offset(
+                    (center + highlightOffset).x - sphereRadius * 0.18f,
+                    (center + highlightOffset).y - sphereRadius * 0.09f
+                ),
+                size = Size(sphereRadius * 0.36f, sphereRadius * 0.18f)
             )
-            val reflectionOffset2 = (sunPx - rightLensCenter).normalizeCompat() * lensRadius * 0.5f
-            drawCircle(
-                color = Color.White.copy(alpha = 0.7f),
-                center = rightLensCenter + reflectionOffset2,
-                radius = lensRadius * 0.22f
+            drawOval(
+                color = Color.White.copy(alpha = 0.25f),
+                topLeft = Offset(
+                    (center + highlightOffset).x - sphereRadius * 0.28f,
+                    (center + highlightOffset).y - sphereRadius * 0.14f
+                ),
+                size = Size(sphereRadius * 0.56f, sphereRadius * 0.28f)
             )
+
             // Sol
             drawCircle(
                 color = Color(0xFFFFEB3B),
@@ -189,204 +185,11 @@ fun Greeting(modifier: Modifier = Modifier) {
                 center = sunPx,
                 radius = sunRadius * 0.7f
             )
-            // --- Bounding boxes cuadradas ---
-            val boxColor = Color(0xFF2196F3).copy(alpha = 0.18f)
-            // Sol
-            val solRect = androidx.compose.ui.geometry.Rect(
-                sunPx.x - sunRadius,
-                sunPx.y - sunRadius,
-                sunPx.x + sunRadius,
-                sunPx.y + sunRadius
-            )
-            drawRect(
-                color = boxColor,
-                topLeft = solRect.topLeft,
-                size = solRect.size,
-                style = Stroke(width = width * 0.008f)
-            )
-            // Lentes
-            val leftLensRect = androidx.compose.ui.geometry.Rect(
-                leftLensCenter.x - lensRadius,
-                leftLensCenter.y - lensRadius,
-                leftLensCenter.x + lensRadius,
-                leftLensCenter.y + lensRadius
-            )
-            val rightLensRect = androidx.compose.ui.geometry.Rect(
-                rightLensCenter.x - lensRadius,
-                rightLensCenter.y - lensRadius,
-                rightLensCenter.x + lensRadius,
-                rightLensCenter.y + lensRadius
-            )
-            drawRect(
-                color = boxColor,
-                topLeft = leftLensRect.topLeft,
-                size = leftLensRect.size,
-                style = Stroke(width = width * 0.008f)
-            )
-            drawRect(
-                color = boxColor,
-                topLeft = rightLensRect.topLeft,
-                size = rightLensRect.size,
-                style = Stroke(width = width * 0.008f)
-            )
-            // Sombras
-            val leftShadowRect = androidx.compose.ui.geometry.Rect(
-                leftLensCenter.x + shadowOffset.x - lensRadius * 1.1f,
-                leftLensCenter.y + shadowOffset.y - lensRadius * 0.7f,
-                leftLensCenter.x + shadowOffset.x + lensRadius * 1.1f,
-                leftLensCenter.y + shadowOffset.y + lensRadius * 0.7f
-            )
-            val rightShadowRect = androidx.compose.ui.geometry.Rect(
-                rightLensCenter.x + shadowOffset.x - lensRadius * 1.1f,
-                rightLensCenter.y + shadowOffset.y - lensRadius * 0.7f,
-                rightLensCenter.x + shadowOffset.x + lensRadius * 1.1f,
-                rightLensCenter.y + shadowOffset.y + lensRadius * 0.7f
-            )
-            val bridgeShadowRect = androidx.compose.ui.geometry.Rect(
-                (bridgeStart.x + bridgeEnd.x) / 2 + shadowOffset.x - lensRadius * 0.4f,
-                lensY + shadowOffset.y - lensRadius * 0.18f,
-                (bridgeStart.x + bridgeEnd.x) / 2 + shadowOffset.x + lensRadius * 0.4f,
-                lensY + shadowOffset.y + lensRadius * 0.18f
-            )
-            drawRect(
-                color = boxColor,
-                topLeft = leftShadowRect.topLeft,
-                size = leftShadowRect.size,
-                style = Stroke(width = width * 0.008f)
-            )
-            drawRect(
-                color = boxColor,
-                topLeft = rightShadowRect.topLeft,
-                size = rightShadowRect.size,
-                style = Stroke(width = width * 0.008f)
-            )
-            drawRect(
-                color = boxColor,
-                topLeft = bridgeShadowRect.topLeft,
-                size = bridgeShadowRect.size,
-                style = Stroke(width = width * 0.008f)
-            )
-            // --- Fin bounding boxes ---
-        }
-        // Etiquetas sobre el Canvas
-        if (canvasSize != androidx.compose.ui.geometry.Size.Zero) {
-            val width = canvasSize.width
-            val height = canvasSize.height
-            val lensRadius = width * 0.18f
-            val lensY = height * 0.5f
-            val leftLensCenter = Offset(width * 0.32f, lensY)
-            val rightLensCenter = Offset(width * 0.68f, lensY)
-            val sunPx = Offset(animatedSunPosition.x * width, animatedSunPosition.y * height)
-            val sunRadius = width * 0.08f
-            val bridgeStart = Offset(leftLensCenter.x + lensRadius * 0.85f, lensY)
-            val bridgeEnd = Offset(rightLensCenter.x - lensRadius * 0.85f, lensY)
-            val lightDir = (Offset((leftLensCenter.x + rightLensCenter.x) / 2, lensY) - sunPx).normalizeCompat()
-            val shadowLength = (width * 0.18f) + (width * 0.25f * (1.2f - animatedSunPosition.y))
-            val shadowOffset = lightDir * shadowLength
-            // Sol
-            val solRect = androidx.compose.ui.geometry.Rect(
-                sunPx.x - sunRadius,
-                sunPx.y - sunRadius,
-                sunPx.x + sunRadius,
-                sunPx.y + sunRadius
-            )
-            Text(
-                text = "sol",
-                color = Color(0xFF444444).copy(alpha = 0.35f),
-                fontSize = 12.sp,
-                modifier = Modifier.offset {
-                    IntOffset(
-                        x = (solRect.left - 8f).toInt(),
-                        y = (solRect.top - 24f).toInt()
-                    )
-                }
-            )
-            // Lentes
-            val leftLensRect = androidx.compose.ui.geometry.Rect(
-                leftLensCenter.x - lensRadius,
-                leftLensCenter.y - lensRadius,
-                leftLensCenter.x + lensRadius,
-                leftLensCenter.y + lensRadius
-            )
-            val rightLensRect = androidx.compose.ui.geometry.Rect(
-                rightLensCenter.x - lensRadius,
-                rightLensCenter.y - lensRadius,
-                rightLensCenter.x + lensRadius,
-                rightLensCenter.y + lensRadius
-            )
-            Text(
-                text = "lente",
-                color = Color(0xFF444444).copy(alpha = 0.35f),
-                fontSize = 12.sp,
-                modifier = Modifier.offset {
-                    IntOffset(
-                        x = (leftLensRect.left - 8f).toInt(),
-                        y = (leftLensRect.top - 24f).toInt()
-                    )
-                }
-            )
-            Text(
-                text = "lente",
-                color = Color(0xFF444444).copy(alpha = 0.35f),
-                fontSize = 12.sp,
-                modifier = Modifier.offset {
-                    IntOffset(
-                        x = (rightLensRect.left - 8f).toInt(),
-                        y = (rightLensRect.top - 24f).toInt()
-                    )
-                }
-            )
-            // Sombras
-            val leftShadowRect = androidx.compose.ui.geometry.Rect(
-                leftLensCenter.x + shadowOffset.x - lensRadius * 1.1f,
-                leftLensCenter.y + shadowOffset.y - lensRadius * 0.7f,
-                leftLensCenter.x + shadowOffset.x + lensRadius * 1.1f,
-                leftLensCenter.y + shadowOffset.y + lensRadius * 0.7f
-            )
-            val rightShadowRect = androidx.compose.ui.geometry.Rect(
-                rightLensCenter.x + shadowOffset.x - lensRadius * 1.1f,
-                rightLensCenter.y + shadowOffset.y - lensRadius * 0.7f,
-                rightLensCenter.x + shadowOffset.x + lensRadius * 1.1f,
-                rightLensCenter.y + shadowOffset.y + lensRadius * 0.7f
-            )
-            val bridgeShadowRect = androidx.compose.ui.geometry.Rect(
-                (bridgeStart.x + bridgeEnd.x) / 2 + shadowOffset.x - lensRadius * 0.4f,
-                lensY + shadowOffset.y - lensRadius * 0.18f,
-                (bridgeStart.x + bridgeEnd.x) / 2 + shadowOffset.x + lensRadius * 0.4f,
-                lensY + shadowOffset.y + lensRadius * 0.18f
-            )
-            Text(
-                text = "sombra",
-                color = Color(0xFF444444).copy(alpha = 0.35f),
-                fontSize = 12.sp,
-                modifier = Modifier.offset {
-                    IntOffset(
-                        x = (leftShadowRect.left - 8f).toInt(),
-                        y = (leftShadowRect.top - 24f).toInt()
-                    )
-                }
-            )
-            Text(
-                text = "sombra",
-                color = Color(0xFF444444).copy(alpha = 0.35f),
-                fontSize = 12.sp,
-                modifier = Modifier.offset {
-                    IntOffset(
-                        x = (rightShadowRect.left - 8f).toInt(),
-                        y = (rightShadowRect.top - 24f).toInt()
-                    )
-                }
-            )
-            Text(
-                text = "sombra",
-                color = Color(0xFF444444).copy(alpha = 0.35f),
-                fontSize = 12.sp,
-                modifier = Modifier.offset {
-                    IntOffset(
-                        x = (bridgeShadowRect.left - 8f).toInt(),
-                        y = (bridgeShadowRect.top - 24f).toInt()
-                    )
-                }
+            // Halo del sol
+            drawCircle(
+                color = Color(0xFFFFF59D).copy(alpha = 0.18f),
+                center = sunPx,
+                radius = sunRadius * 2.2f
             )
         }
     }
@@ -398,6 +201,16 @@ private fun Offset.normalizeCompat(): Offset {
 }
 private fun Offset.getDistanceCompat(): Float {
     return sqrt(x * x + y * y)
+}
+
+// Utilidad para interpolar colores
+fun lerpColor(a: Color, b: Color, t: Float): Color {
+    return Color(
+        red = a.red + (b.red - a.red) * t,
+        green = a.green + (b.green - a.green) * t,
+        blue = a.blue + (b.blue - a.blue) * t,
+        alpha = a.alpha + (b.alpha - a.alpha) * t
+    )
 }
 
 @Preview(showBackground = true)
